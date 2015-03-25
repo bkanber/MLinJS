@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	<meta charset="UTF-8">
+	<script src="https://code.jquery.com/jquery-1.11.2.min.js"></script>
+	<script src="corpus.js"></script>
+	<script>
+
+	$(function() {
+		var $bar = $("#indexing-bar");
+		if (!!window.Worker) {
+			var bmWorker = new Worker("bm25.js");
+
+			bmWorker.onmessage = function(e) {
+				var payload = e.data;
+				switch (payload.type) {
+					case 'index-update':
+						var pct = Math.round(payload.data * 100);
+						$bar.css("width", pct + "%");
+
+						if (pct === 100) {
+							$("#indexing").hide();
+							$("#search").show();
+						}
+						break;
+
+					case 'search-results':
+						console.log(payload.data);
+						var $ul = $("#search-results");
+						$ul.html('');
+						for (var i in payload.data) {
+							var row = payload.data[i];
+							var $li = $("<li>").html(row.body + " <small>Score: " + row._score + "</small>");
+							$ul.append($li);
+
+						}
+						break;
+				}
+			}
+
+			bmWorker.postMessage({type:"index-batch", data: corpus});
+
+		}
+
+		$("#search-form").on('submit', function() {
+			var q = $("#search-query").val();
+			bmWorker.postMessage({type:"search", data: q});
+			return false;
+		});
+	});
+
+	</script>
+
+	<style>
+		body {
+			font-family: arial, sans-serif;
+			font-size: 15px;
+			line-height: 1.4em;
+		}
+
+		#indexing, #search {
+			width: 500px;
+			margin: 20px auto;
+		}
+
+		#indexing-bar-container {
+			border: 1px solid #666;
+			height: 20px;
+		}
+
+		#indexing-bar {
+			background-color: #CCC;
+			width: 0%;
+			height: 100%;
+		}
+
+		#search-query {
+			width: 80%;
+			border: 1px solid #ccc;
+			height: 20px;
+			padding: 2px 4px;
+		}
+
+		ul#search-results {
+			list-style: none;
+			margin: 20px 0;
+			padding: 0;
+		}
+
+		ul#search-results li {
+			margin-bottom: 10px;
+			border-bottom: 1px solid #ccc;
+			padding-bottom: 10px;
+		}
+		ul#search-results li small {
+			color: #999;
+			display: block;
+		}
+	</style>
+	</head>
+	<body>
+		<div id="indexing">
+			<p>Please wait, indexing...</p>
+			<div id="indexing-bar-container">
+				<div id="indexing-bar"></div>
+			</div>
+		</div>
+
+		<div id="search" style="display: none;">
+			<form id="search-form">
+				<input id="search-query" placeholder="Search for a concept, like 'machine learning'...">
+				<button type="submit">Search</button>
+			</form>
+
+			<ul id="search-results">
+			</ul>
+
+		</div>
+	</body>
+</html>
+
